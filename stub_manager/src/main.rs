@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::fs::File;
 use std::collections::HashMap;
 
 use clap::{App, Arg};
@@ -54,14 +55,15 @@ fn run(action: String, process: String) {
     }
 }
 
-fn run_cmd(cmd: String, args: Vec[<String>]) {
-    if !dry {
-        dry = false;
-    }
+fn run_cmd(cmd: &str, args: Vec<&str>) {
+    let out = File::create(format!("/tmp/{}.log", cmd)).expect("failed to open file");
+    let err = out.try_clone().expect("failed to clone file");
 
     let mut op = Command::new(cmd)
         .args(&args)
-        .output()
+        .stdout(Stdio::from(out))
+        .stderr(Stdio::from(err))
+        .spawn()
         .expect("failed to run command");
 
     dbg!(op);
@@ -103,28 +105,68 @@ fn status(_proc: String)  {
 }
 
 fn start(process: String) {
-    // let cmd = cmd_generator("start".to_string(), process);
-    let mut p_list = Vec[<String>];
+    let mut proc_map = HashMap::new();
 
-    match process.as_str() {
-        "ls" => p_list.push("l-handler"),
-        "pk" => p_list.push("p-handler"),
-        "all" => p_list.push("l-handler", "p-handler"),
-        _ => p_list.push("---")
+    if process.as_str() == "ls" {
+        proc_map.insert("l-handler", vec!["--host", "localhost", "--port", "21000"]);
+    } else if process.as_str() == "pk" {
+        proc_map.insert("p-handler", vec!["--host", "localhost", "--port", "21001"]);
+    } else {
+        proc_map.insert("l-handler", vec!["--host", "localhost", "--port", "21000"]);
+        proc_map.insert("p-handler", vec!["--host", "localhost", "--port", "21001"]);
     }
 
-    p_list.push("--host 0.0.0.0");
-    p_list.push("--port 2479");
-
-    for p in p_list.iter() {
-        run_cmd("python3", p_list);
-    }
-    
+    for (p, v) in proc_map.iter() {
+        // python3 l-handler --host 0.0.0.0 --port 21001 > /tmp/ls.out 2>&1 &
+        // | cmd  | arg-1 |   arg2-3       | arg4-5     | 
+        run_cmd(p, v.to_vec());
+    }    
 }
 
 fn stop(process: String) {
-    let cmd = cmd_generator("stop".to_string(), process);
-    run_cmd(cmd, false);
+    let running_proc = check_status();
+
+    if running_proc.len() == 0 {
+        println!("no stubs are running locally!");
+        return;
+    } 
+
+    let mut proc_map = HashMap::new();
+
+    for (k, v) in running_proc.iter() {
+        if k.contains("l-handler") {
+            proc_map.insert("ls", v);         
+        } else if k.contains("p-handler") {
+            proc_map.insert("pk", v);
+        }
+    }
+
+    if process.as_str() == "ls" {
+        if proc_map.get("ls").is_some() {
+            run_cmd("kill", vec![
+                    proc_map["ls"],
+                ]
+            );
+        }
+    } else if process.as_str() == "pk" {
+        if proc_map.get("pk").is_some() {
+            run_cmd("kill", vec![proc_map["pk"]]);
+        }
+    } else {
+        if proc_map.get("ls").is_some() {
+            run_cmd("kill", vec![proc_map["ls"]]);
+        }
+        if proc_map.get("pk").is_some() {
+            run_cmd("kill", vec![proc_map["pk")]]);
+        }
+    }
+
+    // for (p, v) in proc_map.iter() {
+    //     // python3 l-handler --host 0.0.0.0 --port 21001 > /tmp/ls.out 2>&1 &
+    //     // | cmd  | arg-1 |   arg2-3       | arg4-5     | 
+    //     run_cmd(p, v.to_vec());
+    // }
+    // run_cmd(cmd, false);
 }
 
 fn main() {
