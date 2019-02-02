@@ -1,9 +1,14 @@
-use std::process::{Command, Stdio};
-use std::fs::File;
 use std::collections::HashMap;
+use std::fs::File;
+use std::process::{Command, Stdio};
 
 use clap::{App, Arg};
 use sysinfo::{ProcessExt, SystemExt};
+
+const LS_HNDL: &str = "l-handler";
+const PK_HNDL: &str = "p-handler";
+const L_PORT: &str = "21000";
+const P_PORT: &str = "21001";
 
 fn parse_and_validate() -> (String, String) {
     let matches = App::new("stub_manager")
@@ -59,14 +64,13 @@ fn run_cmd(cmd: &str, args: Vec<&str>) {
     let out = File::create(format!("/tmp/{}.log", cmd)).expect("failed to open file");
     let err = out.try_clone().expect("failed to clone file");
 
-    let mut op = Command::new(cmd)
+    let op = Command::new(cmd)
         .args(&args)
         .stdout(Stdio::from(out))
         .stderr(Stdio::from(err))
-        .spawn()
-        .expect("failed to run command");
+        .spawn();
 
-    dbg!(op);
+    // dbg!(op);
 }
 
 fn check_status() -> HashMap<String, i32> {
@@ -85,18 +89,12 @@ fn check_status() -> HashMap<String, i32> {
     processes
 }
 
-fn cmd_generator(prefix: String, process: String) -> String {
-    let what = &format!("{}_{}", prefix, process);
-    what.to_string()
-}
-
-fn status(_proc: String)  {
-
+fn status(_proc: String) {
     let processes = check_status();
 
     if processes.len() == 0 {
         println!("no ls/pk stubs are running!");
-        return 
+        return;
     }
 
     for (k, v) in processes.iter() {
@@ -108,19 +106,17 @@ fn start(process: String) {
     let mut proc_map = HashMap::new();
 
     if process.as_str() == "ls" {
-        proc_map.insert("l-handler", vec!["--host", "localhost", "--port", "21000"]);
+        proc_map.insert(LS_HNDL, vec!["--host", "localhost", "--port", L_PORT]);
     } else if process.as_str() == "pk" {
-        proc_map.insert("p-handler", vec!["--host", "localhost", "--port", "21001"]);
+        proc_map.insert(PK_HNDL, vec!["--host", "localhost", "--port", P_PORT]);
     } else {
-        proc_map.insert("l-handler", vec!["--host", "localhost", "--port", "21000"]);
-        proc_map.insert("p-handler", vec!["--host", "localhost", "--port", "21001"]);
+        proc_map.insert(LS_HNDL, vec!["--host", "localhost", "--port", L_PORT]);
+        proc_map.insert(PK_HNDL, vec!["--host", "localhost", "--port", P_PORT]);
     }
 
     for (p, v) in proc_map.iter() {
-        // python3 l-handler --host 0.0.0.0 --port 21001 > /tmp/ls.out 2>&1 &
-        // | cmd  | arg-1 |   arg2-3       | arg4-5     | 
         run_cmd(p, v.to_vec());
-    }    
+    }
 }
 
 fn stop(process: String) {
@@ -129,44 +125,34 @@ fn stop(process: String) {
     if running_proc.len() == 0 {
         println!("no stubs are running locally!");
         return;
-    } 
+    }
 
     let mut proc_map = HashMap::new();
 
     for (k, v) in running_proc.iter() {
-        if k.contains("l-handler") {
-            proc_map.insert("ls", v);         
-        } else if k.contains("p-handler") {
+        if k.contains(LS_HNDL) {
+            proc_map.insert("ls", v);
+        } else if k.contains(PK_HNDL) {
             proc_map.insert("pk", v);
         }
     }
 
     if process.as_str() == "ls" {
         if proc_map.get("ls").is_some() {
-            run_cmd("kill", vec![
-                    proc_map["ls"],
-                ]
-            );
+            run_cmd("kill", vec![&proc_map["ls"].to_string()]);
         }
     } else if process.as_str() == "pk" {
         if proc_map.get("pk").is_some() {
-            run_cmd("kill", vec![proc_map["pk"]]);
+            run_cmd("kill", vec![&proc_map["pk"].to_string()]);
         }
     } else {
         if proc_map.get("ls").is_some() {
-            run_cmd("kill", vec![proc_map["ls"]]);
+            run_cmd("kill", vec![&proc_map["ls"].to_string()]);
         }
         if proc_map.get("pk").is_some() {
-            run_cmd("kill", vec![proc_map["pk")]]);
+            run_cmd("kill", vec![&proc_map["pk"].to_string()]);
         }
     }
-
-    // for (p, v) in proc_map.iter() {
-    //     // python3 l-handler --host 0.0.0.0 --port 21001 > /tmp/ls.out 2>&1 &
-    //     // | cmd  | arg-1 |   arg2-3       | arg4-5     | 
-    //     run_cmd(p, v.to_vec());
-    // }
-    // run_cmd(cmd, false);
 }
 
 fn main() {
