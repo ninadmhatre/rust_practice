@@ -1,0 +1,10 @@
+[package]
+name = "stub_manager"
+version = "0.1.0"
+authors = ["nmhatre"]
+edition = "2018"
+
+[dependencies]
+sysinfo = "0.8"
+clap = "2.32.0"
+
