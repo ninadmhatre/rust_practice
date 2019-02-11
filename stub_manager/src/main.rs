@@ -9,6 +9,6 @@
 mod lib;
 
 fn main() {
-    let (action, process) = lib::args_validator::parse_and_validate();
-    lib::executor::run(action, process);
+    let (action, process, port) = lib::args_validator::parse_and_validate();
+    lib::executor::run(&action, &process, port);
 }

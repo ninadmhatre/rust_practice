@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-// mod lib::executor;
+use crate::lib::executor::{check_status, run_cmd};
+use crate::lib::config;
 
-pub fn status(_proc: String) {
-    let processes = super::executor::check_status();
+pub fn status(_proc: &str) {
+    let processes = check_status();
 
-    if processes.len() == 0 {
+    if processes.is_empty() {
         println!("no ls/pk stubs are running!");
         return;
     }
@@ -15,31 +16,31 @@ pub fn status(_proc: String) {
     }
 }
 
-fn is_proc_running(proc: String) {
-    
-}
-
-pub fn start(process: String) {
+pub fn start(process: &str, ls_port: u16) {
     let mut proc_map = HashMap::new();
 
-    if process.as_str() == "ls" {
-        proc_map.insert(super::config::LS_HNDL, vec!["--host", "localhost", "--port", super::config::L_PORT]);
-    } else if process.as_str() == "pk" {
-        proc_map.insert(super::config::PK_HNDL, vec!["--host", "localhost", "--port", super::config::P_PORT]);
+    let ls_port_str = ls_port.to_string();
+    let pk_port_str = (ls_port + 1).to_string();
+    let host = "0.0.0.0";
+
+    if process == "ls" {
+        proc_map.insert(config::LS_HNDL, vec!["--host", host, "--port", &ls_port_str]);
+    } else if process == "pk" {
+        proc_map.insert(config::PK_HNDL, vec!["--host", host, "--port", &pk_port_str]);
     } else {
-        proc_map.insert(super::config::LS_HNDL, vec!["--host", "localhost", "--port", super::config::L_PORT]);
-        proc_map.insert(super::config::PK_HNDL, vec!["--host", "localhost", "--port", super::config::P_PORT]);
+        proc_map.insert(config::LS_HNDL, vec!["--host", host, "--port", &ls_port_str]);
+        proc_map.insert(config::PK_HNDL, vec!["--host", host, "--port", &pk_port_str]);
     }
 
     for (p, v) in proc_map.iter() {
-        super::executor::run_cmd(p, v.to_vec());
+        run_cmd(p, v.to_vec());
     }
 }
 
-pub fn stop(process: String) {
-    let running_proc = super::executor::check_status();
+pub fn stop(process: &str) {
+    let running_proc = check_status();
 
-    if running_proc.len() == 0 {
+    if running_proc.is_empty() {
         println!("no stubs are running locally!");
         return;
     }
@@ -47,27 +48,27 @@ pub fn stop(process: String) {
     let mut proc_map = HashMap::new();
 
     for (k, v) in running_proc.iter() {
-        if k.contains(super::config::LS_HNDL) {
+        if k.contains(config::LS_HNDL) {
             proc_map.insert("ls", v);
-        } else if k.contains(super::config::PK_HNDL) {
+        } else if k.contains(config::PK_HNDL) {
             proc_map.insert("pk", v);
         }
     }
 
-    if process.as_str() == "ls" {
+    if process == "ls" {
         if proc_map.get("ls").is_some() {
-            super::executor::run_cmd("kill", vec![&proc_map["ls"].to_string()]);
+            run_cmd("kill", vec![&proc_map["ls"].to_string()]);
         }
-    } else if process.as_str() == "pk" {
+    } else if process == "pk" {
         if proc_map.get("pk").is_some() {
-            super::executor::run_cmd("kill", vec![&proc_map["pk"].to_string()]);
+            run_cmd("kill", vec![&proc_map["pk"].to_string()]);
         }
     } else {
         if proc_map.get("ls").is_some() {
-            super::executor::run_cmd("kill", vec![&proc_map["ls"].to_string()]);
+            run_cmd("kill", vec![&proc_map["ls"].to_string()]);
         }
         if proc_map.get("pk").is_some() {
-            super::executor::run_cmd("kill", vec![&proc_map["pk"].to_string()]);
+            run_cmd("kill", vec![&proc_map["pk"].to_string()]);
         }
     }
 }
